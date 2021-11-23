@@ -4,11 +4,27 @@
  * Телефонная книга
  */
 const phoneBook = new Map();
+
+/**
+ * Валидатор запросов
+ */
 const queryChecker = {
     correctness : true,
     commandPosition : 0,
     symbolPosition : 0
 };
+
+/**
+ * Регулярные выражения для проверки корректности скелета введенных запросов
+ */
+const queryPatterns = [
+    /^Создай контакт ([^;]+)$/,
+    /^Удали контакт ([^;]+)$/,
+    /^Добавь (.+) для контакта ([^;]+)$/,
+    /^Удали (.+) для контакта ([^;]+)$/,
+    /^Покажи (.+) для контактов, где есть (.+)?$/,
+    /^Удали контакты, где есть (.+)?$/,
+];
 
 /**
  * Вызывайте эту функцию, если есть синтаксическая ошибка в запросе
@@ -39,13 +55,17 @@ function deleteContact(name) {
     phoneBook.delete(name);
 }
 
-function addToCotact(phonesLine, emailsLine, name) {
+/**
+ * Добавляет телефоны <newPhones> в спискок телефонов и почты <newEmails> в список почт для контакта <name>
+ * @param {string[]} newPhones - список телефонов для добавления к контакту <name>
+ * @param {string[]} newEmails - список почт для добавления к контакту <name>
+ * @param {string} name - имя контакта, в который необходимо записать новые данные
+ * @returns 
+ */
+function addToCotact(newPhones, newEmails, name) {
     if (!phoneBook.has(name)) {
         return;
     }
-
-    let newPhones = phonesLine.split('и');
-    let newEmails = emailsLine.split('и');
 
     for (let i = 0; i < newPhones.length; i++) {
         phoneBook.get(name).phones.push(newPhones[i]);
@@ -56,7 +76,207 @@ function addToCotact(phonesLine, emailsLine, name) {
     }
 }
 
-function checkQuery(queryLine) {
+/**
+ * Удаляет телефоны <oldPhones> из списка телефонов и почты <oldEmails> из списка почт контакта <name>
+ * @param {string[]} oldPhones - список телефонов для удаления из контакта <name>
+ * @param {string[]} oldEmails - список почт для удаления из контакта <name>
+ * @param {string} name - имя контакта, из которого необходимо удалить старые данные
+ * @returns
+ */
+function removeFromContact(oldPhones, oldEmails, name) {
+    if (!phoneBook.has(name)) {
+        return;
+    }
+    
+    for (let i = 0; i < oldPhones.length; i++) {
+        let position = phoneBook.get(name).phones.indexOf(oldPhones[i]);
+        if (position >= 0) {
+            phoneBook.get(name).phones.splice(position, 1);
+        }
+    }
+
+    for (let i = 0; i < oldEmails.length; i++) {
+        let position = phoneBook.get(name).emails.indexOf(oldEmails[i]);
+        if (position >= 0) {
+            phoneBook.get(name).emails.splice(position, 1);
+        }
+    }
+}
+
+/**
+ * Помечает контакты в телефонной книге, в данных которых присутствует подстрока <pattern>
+ * @param {string} pattern - подстрока для разметки
+ * @returns {Map} - результат разметки телефонной книги. 1 - контакт помечен, 0 - контакт не помечен
+ */
+function matchData(pattern) {
+    const matcher = new Map();
+
+    const names = phoneBook.keys();
+    for (const name in names) {
+        matcher.set(name, 0);
+    }
+
+
+    for (const name of names) {
+        if (name.indexOf(pattern) >= 0) {
+            matcher.set(name, 1);
+        }
+        
+        if (matcher.get(name) === 0) {
+            const phones = phoneBook.get(name).phones;
+            for (const phone of phones) {
+                if (phone.indexOf(pattern) >= 0 && matcher.get(name) === 0){
+                    matcher.set(name, 1);
+                }
+            }
+        }
+
+        if (matcher.get(name) === 0) {
+            const emails = phoneBook.get(name).emails;
+            for (const email of emails) {
+                if (email.indexOf(pattern) >= 0 && matcher.get(name) === 0){
+                    matcher.set(name, 1);
+                }
+            }
+        }
+    }
+
+    return matcher;
+}
+
+/**
+ * Возвращает строку с почтами контакта <name> в формате <email1>;<email2>;...;<emailN>
+ * @param {string} name - имя контакта в телефонной книге
+ * @returns {string} - строка в указанном формате
+ */
+function getEmailsLine(name) {
+    let emailsLine = '';
+
+    const emails = phoneBook.get(name).emails;
+    for (let i = 0; i < emails.length; i++) {
+        emailsLine += emails[i];
+
+        if (i < emails.length - 1) {
+            emailsLine += ',';
+        }
+    }
+
+    return emailsLine;
+}
+
+/**
+ * Возвращает строку с телефонами контакта <name> в формате <phone1>,<phone2>,...,<phoneN>
+ * @param {string} name - имя контакта в телефонной книге в формате +7 (999) 888-77-66
+ * @returns - строка в указанном формате
+ */
+ function getPhonesLine(name) {
+    let phonesLine = '';
+
+    const phones = phoneBook.get(name).phones;
+    for (let i = 0; i < phones.length; i++) {
+        phonesLine += `+7 (${phones[i].slice(0, 3)}) ${phones[i].slice(3, 6)}-${phones[i].slice(6, 8)}-${phones[i].slice(8, 10)}`;
+
+        if (i < phones.length - 1) {
+            phonesLine += ',';
+        }
+    }
+
+    return phonesLine;
+}
+
+
+/**
+ * Возвращает информацию из телефонной книги <phoneBook> в виде списка строк в запрашиваемом формате <requestedFormat>
+ * Информация возвращается в соответствии с запращиваемыми полями, для подходящих под запрос <pattern> контактов
+ * Более подробно поведение функциии описано в постановке задачи
+ * @param {string[]} requestedFormat - формат, который должен соблюдаться строками в возвращаемом списке
+ * @param {string} pattern - паттерн, в соответствии с которым информация о контакте отображается или не отображается 
+ * @returns {string []} - информация из телефонной книги <phoneBook> в виде списка строк в запрашиваемом формате <requestedFormat>
+ * @example
+    phoneBook = {
+        'Егор' => {
+            phones: [ '5556667788' ],
+            emails: [ 'egor.zinovjev2013@yandex.ru' ]
+        },
+        'Клон Егора' => {
+            phones: [ '5556667788' ],
+            emails: [ 'egor.zinovjev2013@yandex.ru' ]
+        }
+        'Совсем не Е Г О Р' => {
+            phones: [ '5556667788' ],
+            emails: [ 'egor.zinovjev2013@yandex.ru' ]
+        }
+    }
+ 
+    requestedFormat = [
+        'почты',
+        'почты',
+        'имя',
+        'телефоны'
+    ];
+    
+    pattern = 'Егор';
+    console.log(showData(requestedFormat, pattern));
+     // [ 'egor.zinovjev2013@yandex.ru;egor.zinovjev2013@yandex.ru;Егор;+7 (555) 666-77-88', egor.zinovjev2013@yandex.ru;egor.zinovjev2013@yandex.ru;Клон Егора;+7 (555) 666-77-88' ]
+ */
+function showData(requestedFormat, pattern) {
+    if (pattern === ''){
+        return;
+    }
+
+    const data = [];
+
+    const matcher = matchData(pattern);
+    for (const match of matcher.keys()) {
+        if (matcher.get(match) === 1) {
+            let formattedData = ''
+
+            let name = match;
+            let emailsLine = getEmailsLine(match);
+            let phonesLine = getPhonesLine(match);
+
+            for (let i = 0;  i < requestedFormat.length ; i++) {
+                const formatPart = requestedFormat[i];
+                switch (formatPart) {
+                    case 'имя':
+                        formattedData += name;
+                        break;
+                    case 'почты':
+                        formattedData += emailsLine;
+                        break;
+                    case 'телефоны':
+                        formattedData += phonesLine;
+                        break;
+                    default:
+                        break;
+                }
+
+                if (i < requestedFormat.length - 1) {
+                    formattedData += ';'
+                }
+            }
+
+            data.push(formattedData);
+        }
+    }
+    
+    return data;
+}
+
+function deleteContactsWhere(pattern) {
+    if (pattern === '') {
+        return;
+    }
+
+    const matcher = matchData(pattern);
+    for (const match of matcher.keys()) {
+        if (matcher.get(match) === 1) {
+            deleteContact(match);
+        }
+    }
+}
+
+function checkQueryStructure(queryLine) {
     function tellChecker(commandPosition, symbolPosition) {
         queryChecker.correctness = false;
         queryChecker.commandPosition = commandPosition;
@@ -73,15 +293,6 @@ function checkQuery(queryLine) {
         tellChecker(queries.length, queryLine.length);
     }
 
-    let patterns = [
-        /^Создай контакт [^;]+$/, //done
-        /^Удали контакт [^;]+$/, //done
-        /^Добавь телефон (\d{10}( и телефон)?)+ и почту (.+( и почту)?)+ для контакта [^;]+$/, //done
-        /^Удали телефон (\d{10}и?)+ и почту (.+и?)+ для контакта [^;]+$/, //done
-        /^Покажи почты и телефоны для контактов, где есть <запрос>$/,
-        /^Удали контакты, где есть <запрос>$/,
-    ]
-
     for (let query of queries) {
         if (/* проверка на корректность не пройдена*/) {
             
@@ -92,24 +303,23 @@ function checkQuery(queryLine) {
 
 }
 
+function executeQuery(queryLine) {
+
+}
+
 /**
  * Выполнение запроса на языке pbQL
  * @param {string} query
  * @returns {string[]} - строки с результатами запроса
  */
 function run(query) {
-    checkQuery(query);
+    checkQueryStructure(query);
 
     if (queryChecker.correctness === false) {
         return syntaxError(queryChecker.commandPosition, queryChecker.symbolPosition);
     }
 
-    return [];
+    return executeQuery(query);
 }
-
-
-test = new Map();
-test.set('', {p: [1], e: []})
-console.log(test.get(''));
 
 module.exports = { phoneBook, run };
