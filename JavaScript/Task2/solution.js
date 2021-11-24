@@ -6,27 +6,6 @@
 const phoneBook = new Map();
 
 /**
- * Валидатор запросов
- */
-const queryChecker = {
-    correctness : true,
-    commandPosition : 0,
-    symbolPosition : 0
-};
-
-/**
- * Регулярные выражения для проверки корректности скелета введенных запросов
- */
-const queryPatterns = [
-    /^Создай контакт ([^;]+)$/,
-    /^Удали контакт ([^;]+)$/,
-    /^Добавь (.+) для контакта ([^;]+)$/,
-    /^Удали (.+) для контакта ([^;]+)$/,
-    /^Покажи (.+) для контактов, где есть (.+)?$/,
-    /^Удали контакты, где есть (.+)?$/,
-];
-
-/**
  * Вызывайте эту функцию, если есть синтаксическая ошибка в запросе
  * @param {number} lineNumber – номер строки с ошибкой
  * @param {number} charNumber – номер символа, с которого запрос стал ошибочным
@@ -263,6 +242,11 @@ function showData(requestedFormat, pattern) {
     return data;
 }
 
+/**
+ * Удаляет контакты из телефонной книги, содержащие подстроку <pattern>
+ * @param {string} pattern - подстрока для удаления контактов 
+ * @returns 
+ */
 function deleteContactsWhere(pattern) {
     if (pattern === '') {
         return;
@@ -276,35 +260,107 @@ function deleteContactsWhere(pattern) {
     }
 }
 
-function checkQueryStructure(queryLine) {
-    function tellChecker(commandPosition, symbolPosition) {
-        queryChecker.correctness = false;
-        queryChecker.commandPosition = commandPosition;
-        queryChecker.symbolPosition = symbolPosition;
+/**
+ * Идентификация комманд
+ * @param {string} command
+ * @returns {number} - порядковый индентификатор переданной команды <command>
+ */
+function identifyCommand(command) {
+    const commandPatterns = [
+        /^Создай контакт ([^;]+)$/,
+        /^Удали контакт ([^;]+)$/,
+        /^Добавь (.+) для контакта ([^;]+)$/,
+        /^Удали (.+) для контакта ([^;]+)$/,
+        /^Покажи (.+) для контактов, где есть (.+)?$/,
+        /^Удали контакты, где есть (.+)?$/,
+    ];
+
+    for (let i = 0; i < commandPatterns.length; i++) {
+        if (commandPatterns[i].test(command)) {
+            return i+1;
+        }
     }
 
+    return 0;
+}
+
+//todo
+function checkCommand(command) {
+    if (identifyCommand(command)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+//todo
+function checkQuery(queryLine) {
     if (typeof queryLine !== 'string') {
         throw new TypeError('query is supposed to be string');
     }
     
-    let queries = queryLine.split(';');
+    let commands = queryLine.split(';');
 
     if (queryLine[queryLine.length - 1] !== ';') {
-        tellChecker(queries.length, queryLine.length);
+        return syntaxError(commands.length, queryLine.length);
     }
 
-    for (let query of queries) {
-        if (/* проверка на корректность не пройдена*/) {
-            
+    for (let i = 0; i < queries.length; i++) {
+        symbolPos = checkCommand(commands[i]);
+        if (symbolPos != 0) {
+            return syntaxError(i + 1, symbolPos);
         }
     }
-
-
-
 }
 
-function executeQuery(queryLine) {
+//todo
+function prepareData(identifier, command) {
+    
+}
 
+/**
+ * Исполняет команды в соответствии с заданным идентификатором <identifier>
+ * @param {number} identifier - идентификатор 
+ * @param {object} data - предобработанные данные в формате, необходимом для корректного выполнения комманд
+ * @returns 
+ */
+function executeCommand(identifier, data){
+    switch(identifier) {
+        case 1:
+            createContact(data);
+            return [];
+        case 2:
+            deleteContact(data);
+            return [];
+        case 3:
+            addToCotact(data.newPhones, data.newEmails, data.name);
+            return [];
+        case 4:
+            removeFromContact(data.oldPhones, data.oldEmails, data.name);
+            return [];
+        case 5:
+            return showData(data.requestedFormat, data.pattern);
+        default:
+            return [];
+    }
+}
+
+/**
+ * Выполняет команды в соответствии с запросом <queryLine>
+ * @param {*} queryLine - запрос
+ * @returns {Any} - результат всех "покажи"
+ */
+function executeQuery(queryLine) {
+    showingResult = [];
+    
+    let commands = queryLine.split(';');
+    for (let i = 0; i < commands.length; i++) {
+        commandIdentifier = identifyCommand(commands[i]);
+        commandData = prepareData(commandIdentifier, commands[i]);
+        showingResult.concat(executeCommand(commandIndentifier, commandData));
+    }
+
+    return showingResult;
 }
 
 /**
@@ -313,11 +369,7 @@ function executeQuery(queryLine) {
  * @returns {string[]} - строки с результатами запроса
  */
 function run(query) {
-    checkQueryStructure(query);
-
-    if (queryChecker.correctness === false) {
-        return syntaxError(queryChecker.commandPosition, queryChecker.symbolPosition);
-    }
+    checkQuery(query);
 
     return executeQuery(query);
 }
