@@ -91,19 +91,19 @@ function matchData(pattern) {
     const matcher = new Map();
 
     const names = phoneBook.keys();
-    for (const name in names) {
+    for (let name in names) {
         matcher.set(name, 0);
     }
 
 
-    for (const name of names) {
+    for (let name of names) {
         if (name.indexOf(pattern) >= 0) {
             matcher.set(name, 1);
         }
         
         if (matcher.get(name) === 0) {
             const phones = phoneBook.get(name).phones;
-            for (const phone of phones) {
+            for (let phone of phones) {
                 if (phone.indexOf(pattern) >= 0 && matcher.get(name) === 0){
                     matcher.set(name, 1);
                 }
@@ -112,7 +112,7 @@ function matchData(pattern) {
 
         if (matcher.get(name) === 0) {
             const emails = phoneBook.get(name).emails;
-            for (const email of emails) {
+            for (let email of emails) {
                 if (email.indexOf(pattern) >= 0 && matcher.get(name) === 0){
                     matcher.set(name, 1);
                 }
@@ -124,7 +124,7 @@ function matchData(pattern) {
 }
 
 /**
- * Возвращает строку с почтами контакта <name> в формате <email1>;<email2>;...;<emailN>
+ * Возвращает строку с почтами контакта <name> в формате <email1>,<email2>,...,<emailN>
  * @param {string} name - имя контакта в телефонной книге
  * @returns {string} - строка в указанном формате
  */
@@ -153,7 +153,7 @@ function getEmailsLine(name) {
 
     const phones = phoneBook.get(name).phones;
     for (let i = 0; i < phones.length; i++) {
-        phonesLine += `+7 (${phones[i].slice(0, 3)}) ${phones[i].slice(3, 6)}-${phones[i].slice(6, 8)}-${phones[i].slice(8, 10)}`;
+        phonesLine += `+7 (${phones[i].slice(0, 3)}) ${phones[i].slice(3, 6)}-${phones[i].slice(6, 8)}-${phones[i].slice(8, phones[i].length)}`;
 
         if (i < phones.length - 1) {
             phonesLine += ',';
@@ -206,7 +206,7 @@ function showData(requestedFormat, pattern) {
     const data = [];
 
     const matcher = matchData(pattern);
-    for (const match of matcher.keys()) {
+    for (let match of matcher.keys()) {
         if (matcher.get(match) === 1) {
             let formattedData = ''
 
@@ -215,7 +215,7 @@ function showData(requestedFormat, pattern) {
             let phonesLine = getPhonesLine(match);
 
             for (let i = 0;  i < requestedFormat.length ; i++) {
-                const formatPart = requestedFormat[i];
+                let formatPart = requestedFormat[i];
                 switch (formatPart) {
                     case 'имя':
                         formattedData += name;
@@ -286,7 +286,7 @@ function identifyCommand(command) {
 
 //todo
 function checkCommand(command) {
-    if (identifyCommand(command)) {
+    if (identifyCommand(command) !== 0) {
         return 1;
     }
 
@@ -305,17 +305,104 @@ function checkQuery(queryLine) {
         return syntaxError(commands.length, queryLine.length);
     }
 
-    for (let i = 0; i < queries.length; i++) {
-        symbolPos = checkCommand(commands[i]);
-        if (symbolPos != 0) {
+    for (let i = 0; i < commands.length; i++) {
+        let symbolPos = checkCommand(commands[i]);
+        if (symbolPos === 0) {
             return syntaxError(i + 1, symbolPos);
         }
     }
 }
 
-//todo
-function prepareData(identifier, command) {
+/**
+ * Собирает данные из команды <command> и возвращает часть данных, указанных в параметре <requiered>
+ * @param {string} command - команда, из которой нужно собрать данные
+ * @param {string} requiered - название части данных, которую необходимо вернуть
+ * @returns 
+ */
+function getDataFromCommand(command, requiered) {
+    const re = [
+        /^Добавь (.+) для контакта ([^;]+)$/,
+        /^Удали (.+) для контакта ([^;]+)$/
+    ];
+
+    let index = 1;
+    if (re[0].test(command)){
+        index = 0;
+    }
+
+    const allData = command.replace(re[index], '$1\n$2').split('\n');
+    if (requiered === 'name'){
+        return allData[1];
+    }
+    const phonesAndEmails = allData[0].split(' и ');
     
+    const phones = [];
+    const emails = [];
+    for (let i = 0; i < phonesAndEmails.length; i++) {
+        if (phonesAndEmails[i].length === 18 && phonesAndEmails[i][0] === 'т') {
+            phones.push(phonesAndEmails[i].slice(8, phonesAndEmails[i].length));
+        }
+        else {
+            emails.push(phonesAndEmails[i].slice(6, phonesAndEmails[i].length));
+        }
+    }
+
+    if (requiered === 'phones') {
+        return phones;
+    }    
+
+    return emails;
+}
+
+/**
+ * Собирает данные из команды <command> и возвращает часть данных, указанных в параметре <requiered>
+ * @param {*} command - команда, из которой нужно собрать данные 
+ * @param {*} requiered - название части данных, которую необходимо вернуть
+ * @returns 
+ */
+function getShowDataFromCommand(command, requiered) {
+    const re = /^Покажи (.+) для контактов, где есть (.+)?$/;
+
+    const allData = command.replace(re, '$1\n$2').split('\n');
+    if (requiered === 'pattern') {
+        const pattern = allData[1];
+        return pattern;
+    }
+    const format = allData[0].split(' и ');
+
+    return format;
+}
+
+/**
+ * Вытягивает данные из команды и преобразует в формат, необходимый для работы с данными
+ * @param {number} identifier - порядковый идентификатор переданной команды <command>
+ * @param {string} command - команда для исполнения
+ * @returns {Any} - данные в нужном формате
+ */
+function prepareData(identifier, command) {
+    switch(identifier) {
+        case 1:
+            return command.slice(15, command.length);
+        case 2:
+            return command.slice(14, command.length);
+        case 3:
+            return {
+              newPhones: getDataFromCommand(command, 'phones'),
+              newEmails: getDataFromCommand(command, 'emails'),
+              name: getDataFromCommand(command, 'name')
+            };
+        case 4:
+            return {
+              oldPhones: getDataFromCommand(command, 'phones'),
+              oldEmails: getDataFromCommand(command, 'emails'),
+              name: getDataFromCommand(command, 'name')
+            };
+        case 5:
+            return {
+                requestedFormat: getShowDataFromCommand(command, 'format'),
+                pattern: getShowDataFromCommand(command, 'pattern')
+            };
+    }
 }
 
 /**
@@ -340,8 +427,6 @@ function executeCommand(identifier, data){
             return [];
         case 5:
             return showData(data.requestedFormat, data.pattern);
-        default:
-            return [];
     }
 }
 
@@ -351,13 +436,15 @@ function executeCommand(identifier, data){
  * @returns {Any} - результат всех "покажи"
  */
 function executeQuery(queryLine) {
-    showingResult = [];
+    let showingResult = [];
     
     let commands = queryLine.split(';');
     for (let i = 0; i < commands.length; i++) {
-        commandIdentifier = identifyCommand(commands[i]);
-        commandData = prepareData(commandIdentifier, commands[i]);
-        showingResult.concat(executeCommand(commandIndentifier, commandData));
+        if (commands[i] !== '') {
+            let commandIdentifier = identifyCommand(commands[i]);
+            let commandData = prepareData(commandIdentifier, commands[i]);
+            showingResult = showingResult.concat(executeCommand(commandIdentifier, commandData));
+        }
     }
 
     return showingResult;
@@ -369,7 +456,7 @@ function executeQuery(queryLine) {
  * @returns {string[]} - строки с результатами запроса
  */
 function run(query) {
-    checkQuery(query);
+    //checkQuery(query);
 
     return executeQuery(query);
 }
