@@ -15,8 +15,8 @@ function syntaxError(lineNumber, charNumber) {
 }
 
 /**
- * Создает новый контакт с именем <name> с пустыми списками телефонов и почт
- * @param {string} name - имя контакта, содержащее любые символы, кроме ;
+ * Создает новый контакт с соответствующим именем из команды <command> с пустыми списками телефонов и почт
+ * @param {string} command - команда с данными
 */
 function createContact(command) {
     let name = command.slice(15, command.length);
@@ -29,8 +29,8 @@ function createContact(command) {
 }
 
 /**
- * Удаляет контакт с именем <name>
- * @param {string} name - имя контакта, содержащее любые символы, кроме ;
+ * Удаляет контакт с соответствующим именем из команды <command> 
+ * @param {string} command - команда с данными
  */
 function deleteContact(command) {
     let name = command.slice(14, command.length);
@@ -39,9 +39,8 @@ function deleteContact(command) {
 }
 
 /**
- * Собирает данные из команды <command> и возвращает часть данных, указанных в параметре <requiered>
- * @param {string} command - команда, из которой нужно собрать данные
- * @param {string} requiered - название части данных, которую необходимо вернуть
+ * Собирает данные из команды <command>
+ * @param {string} command - команда с данными
  * @returns 
  */
  function getData(command) {
@@ -59,8 +58,13 @@ function deleteContact(command) {
     return data;
 }
 
-function getPhones(phonesLine) {
-    const phonesAndEmails = phonesLine.split(' и ');
+/**
+ * Собирает список телефонных номеров из строки <line>
+ * @param {string} line - строка с телефонными номерами и почтами
+ * @returns 
+ */
+function getPhones(line) {
+    const phonesAndEmails = line.split(' и ');
     const phones = [];
 
     for (let i = 0; i < phonesAndEmails.length; i++) {
@@ -72,8 +76,13 @@ function getPhones(phonesLine) {
     return phones;
 }
 
-function getEmails(emailsLine) {
-    const phonesAndEmails = emailsLine.split(' и ');
+/**
+ * Собирает список почт из строки <line>
+ * @param {string} line - строка с телефонными номерами и почтами
+ * @returns 
+ */
+function getEmails(line) {
+    const phonesAndEmails = line.split(' и ');
     const emails = [];
 
     for (let i = 0; i < phonesAndEmails.length; i++) {
@@ -86,10 +95,8 @@ function getEmails(emailsLine) {
 }
 
 /**
- * Добавляет телефоны <newPhones> в спискок телефонов и почты <newEmails> в список почт для контакта <name>
- * @param {string[]} newPhones - список телефонов для добавления к контакту <name>
- * @param {string[]} newEmails - список почт для добавления к контакту <name>
- * @param {string} name - имя контакта, в который необходимо записать новые данные
+ * Добавляет телефоны в команде в список телефонов и почты в команде в список почт для контакта с соответствующим именем из команды <command>
+ * @param {string} command - команда с данными
  * @returns 
  */
 function addToCotact(command) {
@@ -117,11 +124,9 @@ function addToCotact(command) {
 }
 
 /**
- * Удаляет телефоны <oldPhones> из списка телефонов и почты <oldEmails> из списка почт контакта <name>
- * @param {string[]} oldPhones - список телефонов для удаления из контакта <name>
- * @param {string[]} oldEmails - список почт для удаления из контакта <name>
- * @param {string} name - имя контакта, из которого необходимо удалить старые данные
- * @returns
+ * Удаляет телефоны в команде из списка телефонов и почты в команде из списка почт у контакта с соответствующим именем из команды <command>
+ * @param {string} command - команда с данными
+ * @returns 
  */
 function removeFromContact(command) {
     let data = getData(command);
@@ -152,7 +157,7 @@ function removeFromContact(command) {
 /**
  * Помечает контакты в телефонной книге, в данных которых присутствует подстрока <pattern>
  * @param {string} pattern - подстрока для разметки
- * @returns {Map} - результат разметки телефонной книги. 1 - контакт помечен, 0 - контакт не помечен
+ * @returns {Map} - размеченная телефонная книга.
  */
 function matchContacts(pattern) {
     const matcher = new Map();
@@ -232,38 +237,9 @@ function getEmailsLine(name) {
 
 
 /**
- * Возвращает информацию из телефонной книги <phoneBook> в виде списка строк в запрашиваемом формате <requestedFormat>
- * Информация возвращается в соответствии с запращиваемыми полями, для подходящих под запрос <pattern> контактов
- * Более подробно поведение функциии описано в постановке задачи
- * @param {string[]} requestedFormat - формат, который должен соблюдаться строками в возвращаемом списке
- * @param {string} pattern - паттерн, в соответствии с которым информация о контакте отображается или не отображается 
- * @returns {string []} - информация из телефонной книги <phoneBook> в виде списка строк в запрашиваемом формате <requestedFormat>
- * @example
-    phoneBook = {
-        'Егор' => {
-            phones: [ '5556667788' ],
-            emails: [ 'egor.zinovjev2013@yandex.ru' ]
-        },
-        'Клон Егора' => {
-            phones: [ '5556667788' ],
-            emails: [ 'egor.zinovjev2013@yandex.ru' ]
-        }
-        'Совсем не Е Г О Р' => {
-            phones: [ '5556667788' ],
-            emails: [ 'egor.zinovjev2013@yandex.ru' ]
-        }
-    }
- 
-    requestedFormat = [
-        'почты',
-        'почты',
-        'имя',
-        'телефоны'
-    ];
-    
-    pattern = 'Егор';
-    console.log(showData(requestedFormat, pattern));
-     // [ 'egor.zinovjev2013@yandex.ru;egor.zinovjev2013@yandex.ru;Егор;+7 (555) 666-77-88', egor.zinovjev2013@yandex.ru;egor.zinovjev2013@yandex.ru;Клон Егора;+7 (555) 666-77-88' ]
+ * Показывает информацию о контакте в соответствии с запросом из команды <command>
+ * @param {string} command - команда с данными
+ * @returns 
  */
 function showData(command) {
     let data = command.replace(/^Покажи (.+) для контактов, где есть (.+)?$/, '$1\n$2').split('\n');
@@ -314,8 +290,8 @@ function showData(command) {
 }
 
 /**
- * Удаляет контакты из телефонной книги, содержащие подстроку <pattern>
- * @param {string} pattern - подстрока для удаления контактов 
+ * Удаляет контакты из телефонной книги в соответствии с запросом из команды <command>
+ * @param {string} command - команда с данными
  * @returns 
  */
 function deleteContactsWhere(command) {
@@ -336,8 +312,8 @@ function deleteContactsWhere(command) {
 
 /**
  * Идентификация комманд
- * @param {string} command
- * @returns {number} - порядковый индентификатор переданной команды <command>
+ * @param {string} command - команда
+ * @returns {number} - порядковый индентификатор команды <command>
  */
  function identifyCommand(command) {
     const commandPatterns = [
@@ -361,9 +337,8 @@ function deleteContactsWhere(command) {
 }
 
 /**
- * Исполняет команды в соответствии с заданным идентификатором <identifier>
- * @param {number} identifier - идентификатор 
- * @param {object} data - предобработанные данные в формате, необходимом для корректного выполнения комманд
+ * Выполняет команду <command>
+ * @param {string} command - команда для выполнения
  * @returns 
  */
 function executeCommand(command){
@@ -405,7 +380,7 @@ function run(query) {
     }
     
     if (query[query.length - 1] !== ';') {
-        return syntaxError(commands.length, query.length);
+        return syntaxError(1, query.length);
     }
     
     let commands = query.split(';');
