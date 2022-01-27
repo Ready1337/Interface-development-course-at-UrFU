@@ -1,4 +1,4 @@
-# Interface-development-course-at-UrFU
+# Interface_development_course_at_UrFU
 Contains a description of the tasks and my solutions in JavaScript
 
 The course is divided into two parts.
